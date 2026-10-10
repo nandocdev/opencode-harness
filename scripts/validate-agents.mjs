@@ -42,7 +42,7 @@ if (!existsSync(agentsDirectory)) {
     ok(/^description:\s*\S+/m.test(fm), `${file}: missing description`);
     ok(/^mode:\s*(primary|subagent)\s*$/m.test(fm), `${file}: invalid/missing mode`);
     const primary = /^mode:\s*primary\s*$/m.test(fm);
-    if (!primary) ok(/^  task:\s*deny\s*$/m.test(fm), `${file}: subagent must explicitly deny further task delegation`);
+    if (!primary) ok(/^  task:\s*deny\s*$/m.test(fm) || /^  task:\n    "\*":\s*deny\s*$/m.test(fm), `${file}: subagent must explicitly deny further task delegation`);
     const bashBlock = fm.match(/^  bash:\n((?:    .*\n)*)/m)?.[1] ?? '';
     ok(!/^    "\*":\s*allow\s*$/m.test(bashBlock), `${file}: bash wildcard allow is forbidden`);
     if (file !== 'tech-lead.md') {
