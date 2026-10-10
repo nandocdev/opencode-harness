@@ -8,13 +8,17 @@ permission:
     "CHANGELOG.md": allow
     "docs/**": allow
   bash:
-    "*": allow
+    "*": deny
     "git status*": allow
     "git diff*": allow
     "git log*": allow
     "git show*": allow
     "git branch": allow
     "git branch --list*": allow
+    "git add*": ask
+    "git commit*": ask
+    "git tag*": ask
+    "git push*": ask
 ---
 
 # Git Specialist - Release Manager

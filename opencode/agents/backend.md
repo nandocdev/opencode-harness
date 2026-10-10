@@ -4,11 +4,11 @@ mode: subagent
 temperature: 0.1
 permission:
   edit:
-    "*": allow
+    "*": deny
     "src/**": allow
     "tests/**": allow
   bash:
-    "*": allow
+    "*": deny
     "git diff*": allow
     "git log*": allow
     "git status*": allow
@@ -81,4 +81,4 @@ Si defines o cambias un endpoint público o consumido por otro módulo vía HTTP
 
 ## Reglas globales
 
-Lee `prompts/architecture.md` y `prompts/conventions.md` antes de diseñar o escribir código. Coordina cualquier cambio de esquema con `@dba` y no diseñes UI.
+Lee `opencode/prompts/architecture.md` y `opencode/prompts/conventions.md` antes de diseñar o escribir código. Coordina cualquier cambio de esquema con `@dba` y no diseñes UI.

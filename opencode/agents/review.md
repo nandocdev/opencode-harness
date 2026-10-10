@@ -6,6 +6,7 @@ permission:
   edit:
     "*": deny
     "docs/reviews/**": allow
+  task: deny
   bash:
     "*": deny
     "git blame*": allow
