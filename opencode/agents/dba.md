@@ -4,12 +4,13 @@ mode: subagent
 temperature: 0.1
 permission:
   edit:
-    "*": allow
-    "database/**": allow
+    "*": deny
+    "database/migrations/**": allow
+    "database/factories/**": allow
     "src/**": allow
     "tests/**": allow
   bash:
-    "*": allow
+    "*": deny
     "git diff*": allow
     "git log*": allow
     "git status*": allow
@@ -94,4 +95,4 @@ Especialista en integridad de datos, migraciones sin downtime y consultas de lat
 
 ## Reglas globales
 
-Lee `prompts/architecture.md` y `prompts/conventions.md` antes de escribir migraciones o queries. Si el cambio afecta contratos, coordina con `@backend` y `@planner`.
+Lee `opencode/prompts/architecture.md` y `opencode/prompts/conventions.md` antes de escribir migraciones o queries. Si el cambio afecta contratos, coordina con `@backend` y `@planner`.

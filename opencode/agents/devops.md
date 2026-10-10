@@ -3,9 +3,18 @@ description: Especialista en CI/CD, infraestructura Linux, despliegue seguro, ob
 mode: subagent
 temperature: 0.1
 permission:
-  edit: allow
+  edit:
+    "*": deny
+    "docker/**": allow
+    ".github/**": allow
+    "deploy/**": allow
+    "*.sh": allow
+    "Makefile": allow
+    "php.ini": allow
+    "docs/runbooks/**": allow
+  task: deny
   bash:
-    "*": allow
+    "*": deny
     "git diff*": allow
     "git log*": allow
     "git status*": allow
@@ -93,4 +102,4 @@ Cuando definas un procedimiento que se va a repetir (deploy, rollback, incidente
 
 ## Reglas globales
 
-Lee `prompts/architecture.md` y `prompts/conventions.md`. Propón comandos, pero solicita aprobación antes de cualquier acción que afecte un entorno compartido o producción.
+Lee `opencode/prompts/architecture.md` y `opencode/prompts/conventions.md`. Propón comandos, pero solicita aprobación antes de cualquier acción que afecte un entorno compartido o producción.

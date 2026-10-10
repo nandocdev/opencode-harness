@@ -7,7 +7,12 @@ permission:
     "*": deny
     "docs/adr/**": allow
     "docs/requisitos/**": allow
-  bash: deny
+  bash:
+    "*": deny
+    "git log*": allow
+    "git diff*": allow
+    "git status*": allow
+    "codegraph *": allow
 ---
 
 # Agente de Planificación

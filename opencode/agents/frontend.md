@@ -4,12 +4,13 @@ mode: subagent
 temperature: 0.2
 permission:
   edit:
-    "*": allow
-    "src/**": allow
+    "*": deny
     "resources/**": allow
+    "src/**": deny
+    "src/**/Presentation/**": allow
     "tests/**": allow
   bash:
-    "*": allow
+    "*": deny
     "git diff*": allow
     "git log*": allow
     "git status*": allow
@@ -119,4 +120,4 @@ Si defines o cambias un endpoint público o consumido por otro módulo vía HTTP
 
 ## Reglas globales
 
-Lee `prompts/architecture.md` y `prompts/conventions.md` antes de escribir código. Usa consultas de lectura del módulo, no modelos de otros módulos.
+Lee `opencode/prompts/architecture.md` y `opencode/prompts/conventions.md` antes de escribir código. Usa consultas de lectura del módulo, no modelos de otros módulos.
