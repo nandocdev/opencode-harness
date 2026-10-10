@@ -1,22 +1,16 @@
 {
     "$schema": "https://opencode.ai/config.json",
-    "default_agent": "tech-lead",
+    "default_agent": "orchestrator",
     "subagent_depth": 1,
     "instructions": ["opencode/prompts/architecture.md", "opencode/prompts/conventions.md"],
     "permission": {
-        "*": "allow",
+        "*": "ask",
         "bash": {
-            "*": "allow",
-            "rm -rf *": "ask",
-            "git push*": "ask",
-            "git reset --hard*": "ask",
-            "php artisan migrate:fresh*": "ask",
-            "php artisan migrate:rollback*": "ask",
-            "composer require*": "ask",
+            "*": "ask",
             "curl * | sh*": "deny",
             "curl * | bash*": "deny"
         },
-        "task": "allow",
+        "task": "ask",
         "external_directory": "ask"
     },
     "mcp": {

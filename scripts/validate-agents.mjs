@@ -1,70 +1,78 @@
 #!/usr/bin/env node
 /**
- * Validador de coherencia de la configuración opencode.
- * - opencode.json debe ser JSON válido y llamarse exactamente así (no "opemcode.json").
- * - Cada agente debe tener frontmatter con description, mode y permission.
- * - Principio de mínimo privilegio: ningún agente (salvo excepciones listadas)
- *   puede tener bash "*": allow ni edit: allow sin deny por defecto.
- * - Los paths de instructions deben existir.
+ * Deterministic validation for OpenCode configuration and agent policy.
+ * This is a structural policy check, not a substitute for runtime permission tests.
  */
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-let failures = [];
-const ok = (c, msg) => { if (!c) failures.push(msg); };
+const failures = [];
+const ok = (condition, message) => { if (!condition) failures.push(message); };
 
-// 1. Config principal
 ok(existsSync('opencode.json'), 'Falta opencode.json (¿typo "opemcode.json"?)');
 if (existsSync('opemcode.json')) failures.push('Existe opemcode.json (typo): renombrar a opencode.json');
-let cfg = null;
+
+let config = null;
 if (existsSync('opencode.json')) {
-  try { cfg = JSON.parse(readFileSync('opencode.json', 'utf8')); }
-  catch (e) { failures.push('opencode.json no es JSON válido: ' + e.message); }
+  try {
+    config = JSON.parse(readFileSync('opencode.json', 'utf8'));
+  } catch (error) {
+    failures.push('opencode.json no es JSON válido: ' + error.message);
+  }
 }
-if (cfg) {
-  for (const p of cfg.instructions ?? []) ok(existsSync(p), `instruction inexistente: ${p}`);
-  for (const [name, mcp] of Object.entries(cfg.mcp ?? {})) {
+
+if (config) {
+  ok(config.default_agent === 'orchestrator', 'default_agent debe ser orchestrator para respetar el flujo de coordinación');
+  const globalPermission = config.permission ?? {};
+  ok(globalPermission['*'] !== 'allow', 'permisos globales demasiado permisivos: permission.* no debe ser allow');
+  ok(globalPermission.bash?.['*'] !== 'allow', 'permisos globales demasiado permisivos: permission.bash.* no debe ser allow');
+
+  for (const instruction of config.instructions ?? []) {
+    ok(existsSync(instruction), `instruction inexistente: ${instruction}`);
+  }
+
+  for (const [name, mcp] of Object.entries(config.mcp ?? {})) {
     const headers = JSON.stringify(mcp.headers ?? {});
     ok(!/STITCH-API-KEY|YOUR[_-]?KEY|placeholder/i.test(headers), `mcp "${name}": API key placeholder hardcodeada`);
   }
 }
 
-// 2. Agentes
-const agentsDir = 'opencode/agents';
-const parseFront = (t) => {
-  const m = t.match(/^---\n([\s\S]*?)\n---/);
-  return m ? m[1] : null;
-};
-for (const f of readdirSync(agentsDir).filter((x) => x.endsWith('.md'))) {
-  const t = readFileSync(join(agentsDir, f), 'utf8');
-  const fm = parseFront(t);
-  ok(fm !== null, `${f}: falta frontmatter`);
-  if (!fm) continue;
-  ok(/description:/.test(fm), `${f}: falta description`);
-  ok(/mode:\s*(primary|subagent)/.test(fm), `${f}: mode inválido o ausente`);
-  // mínimo privilegio: bash no puede abrir el mundo
-  const bashBlock = fm.match(/bash:\n((?:\s+.*\n)+)/);
-  if (bashBlock && /"\*":\s*allow/.test(bashBlock[1])) {
-    failures.push(`${f}: bash tiene "*": allow — exigir default-deny con allowlist explícita`);
-  }
-  const editBlock = fm.match(/edit:\n((?:\s+.*\n)+)/);
-  if (editBlock && !/"\*":\s*deny/.test(editBlock[1]) && !/^\s*edit:\s*allow/m.test(fm) === false) {
-    // edit: allow global solo permitido en tech-lead (ejecutor)
-    if (f !== 'tech-lead.md' && !/"\*":\s*deny/.test(editBlock[1])) {
-      failures.push(`${f}: edit sin default-deny — requiere alcance explícito`);
+const agentsDirectory = 'opencode/agents';
+if (!existsSync(agentsDirectory)) {
+  failures.push(`directorio de agentes inexistente: ${agentsDirectory}`);
+} else {
+  const files = readdirSync(agentsDirectory).filter((file) => file.endsWith('.md'));
+  const parseFrontmatter = (content) => {
+    const match = content.match(/^---\n([\s\S]*?)\n---/);
+    return match ? match[1] : null;
+  };
+
+  for (const file of files) {
+    const content = readFileSync(join(agentsDirectory, file), 'utf8');
+    const frontmatter = parseFrontmatter(content);
+    ok(frontmatter !== null, `${file}: falta frontmatter`);
+    if (!frontmatter) continue;
+
+    ok(/^description:\s*\S+/m.test(frontmatter), `${file}: falta description`);
+    ok(/^mode:\s*(primary|subagent)\s*$/m.test(frontmatter), `${file}: mode inválido o ausente`);
+
+    const bashBlock = frontmatter.match(/^  bash:\n((?:    .*\n)*)/m)?.[1] ?? '';
+    ok(!/^    "\*":\s*allow\s*$/m.test(bashBlock), `${file}: bash tiene wildcard allow; exigir allowlist explícita`);
+
+    if (file !== 'tech-lead.md') {
+      const editBlock = frontmatter.match(/^  edit:\n((?:    .*\n)*)/m)?.[1] ?? '';
+      const globalEditAllow = /^  edit:\s*allow\s*$/m.test(frontmatter);
+      const explicitlyDenied = /^  edit:\s*deny\s*$/m.test(frontmatter) || /^    "\*":\s*deny\s*$/m.test(editBlock);
+      ok(!globalEditAllow && explicitlyDenied, `${file}: edit requiere deny explícito por defecto`);
     }
   }
-  if (!/"\*":\s*deny/.test(editBlock?.[0] ?? '') && !/edit:\s*deny/.test(fm) && f !== 'tech-lead.md') {
-    failures.push(`${f}: permisos demasiado laxos`);
-  }
+
+  const primaryAgents = files.filter((file) => /^mode:\s*primary\s*$/m.test(parseFrontmatter(readFileSync(join(agentsDirectory, file), 'utf8')) ?? ''));
+  ok(primaryAgents.length === 1 && primaryAgents[0] === 'orchestrator.md', `debe existir un único primary (orchestrator.md); encontrados: ${primaryAgents.join(', ') || 'ninguno'}`);
 }
 
-// 3. Un solo primary orquestador
-const primaries = readdirSync(agentsDir).filter((x) => x.endsWith('.md')).filter((f) => /mode:\s*primary/.test(parseFront(readFileSync(join(agentsDir, f), 'utf8')) ?? ''));
-ok(primaries.length === 1 && primaries[0] === 'orchestrator.md', `debe existir un único primary (orchestrator.md); encontrados: ${primaries.join(', ') || 'ninguno'}`);
-
-if (failures.length) {
+if (failures.length > 0) {
   console.error('FAIL:\n - ' + failures.join('\n - '));
   process.exit(1);
 }
-console.log('OK: configuración opencode coherente (permisos, archivos, MCPs, orquestador único)');
+console.log('OK: configuración OpenCode coherente (agente primario, permisos globales, archivos, MCPs)');
