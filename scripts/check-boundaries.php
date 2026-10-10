@@ -3,36 +3,29 @@
 declare(strict_types=1);
 
 /**
- * Gate determinista de arquitectura modular (R1/R2/R3).
+ * Deterministic modular architecture gate (R1/R2/R3).
  *
- * Escanea src/Modulos/*/ y verifica que ningún módulo importe clases de
- * otro módulo por fuera de la superficie pública permitida:
- *   Modulo\...\Application\Contracts, Modulo\...\DTOs, Modulo\...\IntegrationEvents
+ * Scans module directories directly under src/ and checks cross-module imports.
+ * Public cross-module surfaces: Application\\Contracts, Application\\DTOs,
+ * and IntegrationEvents. This lightweight check is not a full PHP AST analysis.
  *
- * Salida: lista de violaciones "archivo:línea -> import". Exit 1 si hay violaciones.
- * Uso: php scripts/check-boundaries.php [ruta-src]
+ * Usage: php scripts/check-boundaries.php [source-directory]
  */
 
-$srcRoot = $argv[1] ?? 'src';
-$publicSuffixes = ['Application\\Contracts', 'DTOs', 'IntegrationEvents'];
-
+$srcRoot = rtrim($argv[1] ?? 'src', DIRECTORY_SEPARATOR);
 if (!is_dir($srcRoot)) {
-    fwrite(STDERR, "ERROR: no existe el directorio fuente esperado: {$srcRoot}\n");
+    fwrite(STDERR, "ERROR: expected source directory does not exist: {$srcRoot}\\n");
     exit(1);
 }
 
-$modulesDir = rtrim($srcRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'Modulos';
-if (!is_dir($modulesDir)) {
-    fwrite(STDERR, "ERROR: no existe el directorio de módulos esperado: {$modulesDir}\n");
-    exit(1);
-}
-
-$modules = array_values(array_filter(glob($modulesDir . DIRECTORY_SEPARATOR . '*', GLOB_ONLYDIR) ?: [], 'is_dir'));
+$modules = array_values(array_filter(
+    glob($srcRoot . DIRECTORY_SEPARATOR . '*', GLOB_ONLYDIR) ?: [],
+    static fn (string $path): bool => basename($path) !== 'Shared'
+));
 if ($modules === []) {
-    fwrite(STDERR, "ERROR: no se encontraron módulos en {$modulesDir}; no es posible verificar fronteras.\n");
+    fwrite(STDERR, "ERROR: no module directories found directly under {$srcRoot}; cannot verify boundaries.\\n");
     exit(1);
 }
-
 $moduleNames = array_map('basename', $modules);
 $violations = [];
 $rii = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($srcRoot, FilesystemIterator::SKIP_DOTS));
@@ -41,59 +34,65 @@ foreach ($rii as $file) {
     if (!$file->isFile() || $file->getExtension() !== 'php') {
         continue;
     }
-
     $path = $file->getPathname();
     $owner = null;
     foreach ($moduleNames as $moduleName) {
-        if (str_contains($path, DIRECTORY_SEPARATOR . 'Modulos' . DIRECTORY_SEPARATOR . $moduleName . DIRECTORY_SEPARATOR)) {
+        if (str_contains($path, DIRECTORY_SEPARATOR . $moduleName . DIRECTORY_SEPARATOR)) {
             $owner = $moduleName;
             break;
         }
     }
+    if ($owner === null) {
+        continue;
+    }
 
-    $lines = file($path);
-    if ($lines === false) {
-        fwrite(STDERR, "ERROR: no se pudo leer {$path}\n");
+    $contents = file_get_contents($path);
+    if ($contents === false) {
+        fwrite(STDERR, "ERROR: unable to read {$path}\\n");
         exit(1);
     }
 
-    foreach ($lines as $index => $line) {
-        if (!preg_match('/^use\s+([^;\s]+);/', trim($line), $matches)) {
-            continue;
+    $references = [];
+    if (preg_match_all('/^\\s*use\\s+([^;]+);/m', $contents, $matches)) {
+        foreach ($matches[1] as $importList) {
+            foreach (explode(',', $importList) as $import) {
+                $import = preg_replace('/\\s+as\\s+\\w+/i', '', trim($import));
+                if ($import !== '') {
+                    $references[] = trim($import, " \\\\t\\n\\r\\\\");
+                }
+            }
         }
+    }
+    if (preg_match_all('~\\\\\\\\[A-Za-z_][A-Za-z0-9_]*(?:\\\\\\\\[A-Za-z_][A-Za-z0-9_]*)+~', $contents, $matches)) {
+        $references = array_merge($references, $matches[0]);
+    }
 
-        $fqcn = $matches[1];
+    foreach (array_unique($references) as $reference) {
+        $segments = explode('\\\\', trim($reference, '\\\\'));
         foreach ($moduleNames as $targetModule) {
             if ($targetModule === $owner) {
                 continue;
             }
-
-            $pattern = '/(App\\\\)?Domain\\\\Modulos\\\\' . preg_quote($targetModule, '/') . '\\\\|Modulos\\\\' . preg_quote($targetModule, '/') . '\\\\/';
-            if (!preg_match($pattern, $fqcn)) {
+            $position = array_search($targetModule, $segments, true);
+            if ($position === false || !isset($segments[$position + 1])) {
                 continue;
             }
-
-            $isPublic = false;
-            foreach ($publicSuffixes as $suffix) {
-                if (str_contains($fqcn, '\\' . $suffix . '\\')) {
-                    $isPublic = true;
-                    break;
-                }
-            }
-
+            $tail = array_slice($segments, $position + 1);
+            $isPublic = ($tail[0] ?? null) === 'Application'
+                && in_array($tail[1] ?? null, ['Contracts', 'DTOs', 'IntegrationEvents'], true)
+                || ($tail[0] ?? null) === 'IntegrationEvents';
             if (!$isPublic) {
-                $violations[] = sprintf('%s:%d -> %s (cross-module fuera de superficie pública)', $path, $index + 1, $fqcn);
+                $violations[] = sprintf('%s -> %s (cross-module import outside public surface)', $path, $reference);
             }
         }
     }
 }
 
 if ($violations !== []) {
-    fwrite(STDERR, count($violations) . " violación(es) de fronteras entre módulos:\n");
-    foreach ($violations as $violation) {
-        fwrite(STDERR, "  {$violation}\n");
+    fwrite(STDERR, count($violations) . " module boundary violation(s):\\n");
+    foreach (array_unique($violations) as $violation) {
+        fwrite(STDERR, "  {$violation}\\n");
     }
     exit(1);
 }
-
-echo "OK: sin violaciones R1/R2/R3 en {$srcRoot}\n";
+echo "OK: no detected R1/R2/R3 violations under {$srcRoot}\\n";

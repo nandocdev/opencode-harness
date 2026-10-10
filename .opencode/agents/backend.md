@@ -6,7 +6,7 @@ permission:
   edit:
     "*": deny
     "src/**": allow
-    "tests/**": allow
+  task: deny
   bash:
     "*": deny
     "git diff*": allow
@@ -81,4 +81,4 @@ Si defines o cambias un endpoint público o consumido por otro módulo vía HTTP
 
 ## Reglas globales
 
-Lee `opencode/prompts/architecture.md` y `opencode/prompts/conventions.md` antes de diseñar o escribir código. Coordina cualquier cambio de esquema con `@dba` y no diseñes UI.
+Lee `.opencode/prompts/architecture.md` y `.opencode/prompts/conventions.md` antes de diseñar o escribir código. Coordina cualquier cambio de esquema con `@dba` y no diseñes UI.

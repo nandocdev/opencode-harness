@@ -102,4 +102,4 @@ Cuando definas un procedimiento que se va a repetir (deploy, rollback, incidente
 
 ## Reglas globales
 
-Lee `opencode/prompts/architecture.md` y `opencode/prompts/conventions.md`. Propón comandos, pero solicita aprobación antes de cualquier acción que afecte un entorno compartido o producción.
+Lee `.opencode/prompts/architecture.md` y `.opencode/prompts/conventions.md`. Propón comandos, pero solicita aprobación antes de cualquier acción que afecte un entorno compartido o producción.

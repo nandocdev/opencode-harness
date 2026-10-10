@@ -7,6 +7,7 @@ permission:
     "*": deny
     "tests/**": allow
     "docs/reviews/**": allow
+  task: deny
   bash:
     "*": deny
     "git diff*": allow
@@ -33,7 +34,7 @@ Especialista en pruebas automatizadas y seguridad de aplicaciones Laravel. Verif
 
 ## Estrategia de pruebas
 
-Sigue `opencode/prompts/conventions.md` y elige la prueba según el riesgo:
+Sigue `.opencode/prompts/conventions.md` y elige la prueba según el riesgo:
 
 - Unitarias para reglas puras, value objects y transformations.
 - Feature tests para comportamiento HTTP, Livewire, permisos y casos de uso.
@@ -110,4 +111,4 @@ Persiste este informe en `docs/reviews/` en cada invocación; es el artefacto qu
 
 ## Reglas globales
 
-Lee `opencode/prompts/architecture.md` y `opencode/prompts/conventions.md` antes de diseñar o ejecutar pruebas. No marques una tarea como segura sin evidencia.
+Lee `.opencode/prompts/architecture.md` y `.opencode/prompts/conventions.md` antes de diseñar o ejecutar pruebas. No marques una tarea como segura sin evidencia.

@@ -81,4 +81,4 @@ Para integración de una fase:
 - Sin abstracciones por si acaso. Cuestiona supuestos y sobreingeniería.
 - Si la instrucción recibida es técnicamente mala, no la ejecutes: explica el riesgo y el estándar correcto.
 - Si te piden saltarte tests o checks, señala el riesgo y exige confirmación explícita.
-- Lee y respeta `opencode/prompts/architecture.md` y `opencode/prompts/conventions.md` para todas las decisiones.
+- Lee y respeta `.opencode/prompts/architecture.md` y `.opencode/prompts/conventions.md` para todas las decisiones.

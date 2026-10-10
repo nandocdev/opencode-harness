@@ -1,41 +1,54 @@
 {
-    "$schema": "https://opencode.ai/config.json",
-    "default_agent": "orchestrator",
-    "subagent_depth": 1,
-    "instructions": ["opencode/prompts/architecture.md", "opencode/prompts/conventions.md"],
-    "permission": {
-        "*": "ask",
-        "bash": {
-            "*": "ask",
-            "curl * | sh*": "deny",
-            "curl * | bash*": "deny"
-        },
-        "task": "ask",
-        "external_directory": "ask"
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "orchestrator",
+  "permission": {
+    "*": "ask",
+    "bash": {
+      "*": "ask",
+      "curl * | sh*": "deny",
+      "curl * | bash*": "deny"
     },
-    "mcp": {
-        "laravel-boost": {
-            "type": "local",
-            "enabled": true,
-            "command": ["php", "artisan", "boost:mcp"]
-        },
-        "codegraph": {
-            "type": "local",
-            "command": ["codegraph", "serve", "--mcp"],
-            "enabled": true
-        },
-        "plantuml": {
-            "type": "local",
-            "command": ["npx", "-y", "@plantuml/mcp-js"],
-            "enabled": true
-        },
-        "stitch": {
-            "type": "remote",
-            "url": "https://stitch.googleapis.com/mcp",
-            "enabled": false,
-            "headers": {
-                "X-Goog-Api-Key": "{env:STITCH_API_KEY}"
-            }
-        }
+    "task": "ask",
+    "external_directory": "ask"
+  },
+  "mcp": {
+    "laravel-boost": {
+      "type": "local",
+      "enabled": false,
+      "command": [
+        "php",
+        "artisan",
+        "boost:mcp"
+      ]
+    },
+    "codegraph": {
+      "type": "local",
+      "command": [
+        "codegraph",
+        "serve",
+        "--mcp"
+      ],
+      "enabled": true
+    },
+    "plantuml": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@plantuml/mcp-js"
+      ],
+      "enabled": true
+    },
+    "stitch": {
+      "type": "remote",
+      "url": "https://stitch.googleapis.com/mcp",
+      "enabled": false,
+      "headers": {
+        "X-Goog-Api-Key": "{env:STITCH_API_KEY}"
+      }
     }
+  },
+  "experimental": {
+    "subagent_depth": 1
+  }
 }

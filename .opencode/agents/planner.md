@@ -7,6 +7,7 @@ permission:
     "*": deny
     "docs/adr/**": allow
     "docs/requisitos/**": allow
+  task: deny
   bash:
     "*": deny
     "git log*": allow

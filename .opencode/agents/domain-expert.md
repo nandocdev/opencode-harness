@@ -10,6 +10,7 @@ permission:
   edit:
     "*": deny
     "docs/requisitos/**": allow
+  task: deny
   bash: deny
 ---
 
