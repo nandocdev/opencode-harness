@@ -7,39 +7,49 @@ Configuración multi-agente para [OpenCode](https://opencode.ai) orientada a un 
 ```
 opencode.json            # configuración principal (¡no "opemcode.json"!)
 opencode/
-  agents/                # agentes: 1 primary (orchestrator) + subagentes especialistas
+  agents/                # 1 primary (orchestrator) + subagentes especialistas
   prompts/               # instrucciones normativas (architecture.md, conventions.md)
 scripts/
-  validate-agents.mjs    # coherencia de permisos/config (gate determinista)
-  check-boundaries.php   # fronteras entre módulos R1/R2/R3 (gate determinista)
+  validate-agents.mjs          # coherencia de permisos/config (gate determinista)
+  validate-agents.test.mjs     # pruebas de regresión del validador
+  check-boundaries.php         # gate determinista de fronteras entre módulos
+  check-boundaries.test.php    # pruebas del gate con fixtures aislados
 .github/workflows/
-  quality-gates.yml      # enforcement en CI: pint, pest, arquitectura, secret scan
+  quality-gates.yml      # CI del harness
 ```
 
 La carpeta `opencode/` (sin punto) se usa deliberadamente para poder versionarla en Git.
 
 ## Modelo de agentes
 
-| Agente | Modo | Rol | Escrito | Bash |
+| Agente | Modo | Rol | Escritura | Bash |
 | --- | --- | --- | --- | --- |
 | `orchestrator` | primary | Clasifica riesgo, delega, verifica gates | ✗ | solo lectura git |
 | `tech-lead` | subagent | Ejecutor técnico e integrador | ✓ | allowlist checks |
 | `planner` | subagent | Planes y ADRs | docs/adr, docs/requisitos | solo lectura |
 | `domain-expert` | subagent | Autoridad de negocio (SME) | docs/requisitos | ✗ |
 | `backend` / `frontend` / `dba` | subagent | Implementación por capa | src acotado | allowlist checks |
-| `devops` | subagent | CI/CD e infra | docker/, .github/, deploy/ | ✗ |
+| `devops` | subagent | CI/CD e infraestructura | docker/, .github/, deploy/ | ✗ |
 | `secqa` | subagent | Tests y seguridad OWASP | tests/, docs/reviews | allowlist checks |
 | `review` | subagent | Code review independiente R1-R8 | docs/reviews | solo lectura git |
 | `git` | subagent | Commits, releases, changelog | CHANGELOG.md | git write = ask |
 
-Principios: separación coordinador/ejecutor (SRP), mínimo privilegio con default-deny, handoffs como artefactos versionados (`docs/adr`, `docs/requisitos`, `docs/reviews`) y gates verificables en CI además de las instrucciones al modelo.
+Principios: separación coordinador/ejecutor (SRP), mínimo privilegio, handoffs como artefactos versionados (`docs/adr`, `docs/requisitos`, `docs/reviews`) y gates verificables en CI además de las instrucciones al modelo.
+
+La política global es conservadora (`ask` por defecto); cada agente debe declarar sus permisos específicos. El validador comprueba consistencia estructural, pero **no demuestra por sí solo la autorización efectiva en tiempo de ejecución**. Antes de desplegar cambios de permisos, valida también el comportamiento real de OpenCode.
 
 ## Validación local
 
+Desde la raíz del repositorio:
+
 ```bash
 node scripts/validate-agents.mjs
-php scripts/check-boundaries.php src
+node --test scripts/validate-agents.test.mjs
+php -l scripts/check-boundaries.php
+php scripts/check-boundaries.test.php
 ```
+
+Para comprobar las fronteras de una aplicación Laravel, ejecuta `php scripts/check-boundaries.php ruta/a/src`. El directorio debe contener `Modulos/` y al menos un módulo; si falta estructura, el gate falla en lugar de informar un falso positivo.
 
 ## Secretos
 
