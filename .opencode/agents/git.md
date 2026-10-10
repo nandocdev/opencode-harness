@@ -7,6 +7,7 @@ permission:
     "*": deny
     "CHANGELOG.md": allow
     "docs/**": allow
+  task: deny
   bash:
     "*": deny
     "git status*": allow

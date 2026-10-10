@@ -8,7 +8,7 @@ permission:
     "resources/**": allow
     "src/**": deny
     "src/**/Presentation/**": allow
-    "tests/**": allow
+  task: deny
   bash:
     "*": deny
     "git diff*": allow
@@ -120,4 +120,4 @@ Si defines o cambias un endpoint público o consumido por otro módulo vía HTTP
 
 ## Reglas globales
 
-Lee `opencode/prompts/architecture.md` y `opencode/prompts/conventions.md` antes de escribir código. Usa consultas de lectura del módulo, no modelos de otros módulos.
+Lee `.opencode/prompts/architecture.md` y `.opencode/prompts/conventions.md` antes de escribir código. Usa consultas de lectura del módulo, no modelos de otros módulos.

@@ -1,78 +1,67 @@
 #!/usr/bin/env node
 /**
- * Deterministic validation for OpenCode configuration and agent policy.
- * This is a structural policy check, not a substitute for runtime permission tests.
+ * Structural validation for OpenCode configuration and agent policy.
+ * Runtime permission resolution still requires integration tests against OpenCode.
  */
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const failures = [];
 const ok = (condition, message) => { if (!condition) failures.push(message); };
-
-ok(existsSync('opencode.json'), 'Falta opencode.json (¿typo "opemcode.json"?)');
-if (existsSync('opemcode.json')) failures.push('Existe opemcode.json (typo): renombrar a opencode.json');
-
+const agentsDirectory = '.opencode/agents';
+ok(existsSync('opencode.json'), 'Missing opencode.json');
 let config = null;
 if (existsSync('opencode.json')) {
-  try {
-    config = JSON.parse(readFileSync('opencode.json', 'utf8'));
-  } catch (error) {
-    failures.push('opencode.json no es JSON válido: ' + error.message);
-  }
+  try { config = JSON.parse(readFileSync('opencode.json', 'utf8')); }
+  catch (error) { failures.push('opencode.json is not valid JSON: ' + error.message); }
 }
-
 if (config) {
-  ok(config.default_agent === 'orchestrator', 'default_agent debe ser orchestrator para respetar el flujo de coordinación');
-  const globalPermission = config.permission ?? {};
-  ok(globalPermission['*'] !== 'allow', 'permisos globales demasiado permisivos: permission.* no debe ser allow');
-  ok(globalPermission.bash?.['*'] !== 'allow', 'permisos globales demasiado permisivos: permission.bash.* no debe ser allow');
-
-  for (const instruction of config.instructions ?? []) {
-    ok(existsSync(instruction), `instruction inexistente: ${instruction}`);
-  }
-
+  ok(config.default_agent === 'orchestrator', 'default_agent must be orchestrator');
+  ok(config.experimental?.subagent_depth === 1, 'experimental.subagent_depth must be 1');
+  ok(config.instructions === undefined, 'Use root AGENTS.md instead of config.instructions');
+  const permissions = config.permission ?? config.permissions ?? {};
+  ok(permissions['*'] !== 'allow', 'Global wildcard permission must not be allow');
+  ok(permissions.bash?.['*'] !== 'allow' && permissions.shell?.['*'] !== 'allow', 'Global shell wildcard permission must not be allow');
+  ok(existsSync('AGENTS.md'), 'Missing root AGENTS.md');
+  ok(config.mcp?.['laravel-boost']?.enabled !== true, 'laravel-boost must be disabled outside a Laravel application');
   for (const [name, mcp] of Object.entries(config.mcp ?? {})) {
-    const headers = JSON.stringify(mcp.headers ?? {});
-    ok(!/STITCH-API-KEY|YOUR[_-]?KEY|placeholder/i.test(headers), `mcp "${name}": API key placeholder hardcodeada`);
+    ok(!/STITCH-API-KEY|YOUR[_-]?KEY|placeholder/i.test(JSON.stringify(mcp.headers ?? {})), `MCP "${name}" contains a hardcoded key placeholder`);
   }
 }
-
-const agentsDirectory = 'opencode/agents';
+const parseFrontmatter = (content) => content.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? null;
+const agents = new Map();
 if (!existsSync(agentsDirectory)) {
-  failures.push(`directorio de agentes inexistente: ${agentsDirectory}`);
+  failures.push(`Agent directory not found: ${agentsDirectory}`);
 } else {
-  const files = readdirSync(agentsDirectory).filter((file) => file.endsWith('.md'));
-  const parseFrontmatter = (content) => {
-    const match = content.match(/^---\n([\s\S]*?)\n---/);
-    return match ? match[1] : null;
-  };
-
-  for (const file of files) {
+  for (const file of readdirSync(agentsDirectory).filter((item) => item.endsWith('.md'))) {
     const content = readFileSync(join(agentsDirectory, file), 'utf8');
-    const frontmatter = parseFrontmatter(content);
-    ok(frontmatter !== null, `${file}: falta frontmatter`);
-    if (!frontmatter) continue;
-
-    ok(/^description:\s*\S+/m.test(frontmatter), `${file}: falta description`);
-    ok(/^mode:\s*(primary|subagent)\s*$/m.test(frontmatter), `${file}: mode inválido o ausente`);
-
-    const bashBlock = frontmatter.match(/^  bash:\n((?:    .*\n)*)/m)?.[1] ?? '';
-    ok(!/^    "\*":\s*allow\s*$/m.test(bashBlock), `${file}: bash tiene wildcard allow; exigir allowlist explícita`);
-
+    const fm = parseFrontmatter(content);
+    ok(fm !== null, `${file}: missing frontmatter`);
+    if (!fm) continue;
+    agents.set(file, fm);
+    ok(/^description:\s*\S+/m.test(fm), `${file}: missing description`);
+    ok(/^mode:\s*(primary|subagent)\s*$/m.test(fm), `${file}: invalid/missing mode`);
+    const primary = /^mode:\s*primary\s*$/m.test(fm);
+    if (!primary) ok(/^  task:\s*deny\s*$/m.test(fm), `${file}: subagent must explicitly deny further task delegation`);
+    const bashBlock = fm.match(/^  bash:\n((?:    .*\n)*)/m)?.[1] ?? '';
+    ok(!/^    "\*":\s*allow\s*$/m.test(bashBlock), `${file}: bash wildcard allow is forbidden`);
     if (file !== 'tech-lead.md') {
-      const editBlock = frontmatter.match(/^  edit:\n((?:    .*\n)*)/m)?.[1] ?? '';
-      const globalEditAllow = /^  edit:\s*allow\s*$/m.test(frontmatter);
-      const explicitlyDenied = /^  edit:\s*deny\s*$/m.test(frontmatter) || /^    "\*":\s*deny\s*$/m.test(editBlock);
-      ok(!globalEditAllow && explicitlyDenied, `${file}: edit requiere deny explícito por defecto`);
+      const editBlock = fm.match(/^  edit:\n((?:    .*\n)*)/m)?.[1] ?? '';
+      ok(!/^  edit:\s*allow\s*$/m.test(fm) && (/^  edit:\s*deny\s*$/m.test(fm) || /^    "\*":\s*deny\s*$/m.test(editBlock)), `${file}: edit must default to deny`);
     }
   }
-
-  const primaryAgents = files.filter((file) => /^mode:\s*primary\s*$/m.test(parseFrontmatter(readFileSync(join(agentsDirectory, file), 'utf8')) ?? ''));
-  ok(primaryAgents.length === 1 && primaryAgents[0] === 'orchestrator.md', `debe existir un único primary (orchestrator.md); encontrados: ${primaryAgents.join(', ') || 'ninguno'}`);
+  const primaries = [...agents.entries()].filter(([, fm]) => /^mode:\s*primary\s*$/m.test(fm)).map(([file]) => file);
+  ok(primaries.length === 1 && primaries[0] === 'orchestrator.md', `Expected orchestrator as the only primary agent; found ${primaries.join(', ') || 'none'}`);
+  const taskBlock = (agents.get('orchestrator.md') ?? '').match(/^  task:\n((?:    .*\n)*)/m)?.[1] ?? '';
+  const allowlist = [...taskBlock.matchAll(/^    "([^"]+)":\s*allow\s*$/gm)].map((match) => match[1]);
+  for (const name of allowlist) {
+    const target = agents.get(`${name}.md`);
+    ok(target !== undefined, `orchestrator allows missing agent "${name}"`);
+    if (target) ok(/^mode:\s*subagent\s*$/m.test(target), `orchestrator target "${name}" must be a subagent`);
+  }
 }
-
-if (failures.length > 0) {
+if (failures.length) {
   console.error('FAIL:\n - ' + failures.join('\n - '));
   process.exit(1);
 }
-console.log('OK: configuración OpenCode coherente (agente primario, permisos globales, archivos, MCPs)');
+console.log('OK: OpenCode configuration and agent policy are structurally consistent');

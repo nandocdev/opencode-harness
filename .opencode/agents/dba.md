@@ -7,8 +7,9 @@ permission:
     "*": deny
     "database/migrations/**": allow
     "database/factories/**": allow
-    "src/**": allow
-    "tests/**": allow
+    "src/**/Infrastructure/Database/**": allow
+    "src/**/Infrastructure/Persistence/**": allow
+  task: deny
   bash:
     "*": deny
     "git diff*": allow
@@ -95,4 +96,4 @@ Especialista en integridad de datos, migraciones sin downtime y consultas de lat
 
 ## Reglas globales
 
-Lee `opencode/prompts/architecture.md` y `opencode/prompts/conventions.md` antes de escribir migraciones o queries. Si el cambio afecta contratos, coordina con `@backend` y `@planner`.
+Lee `.opencode/prompts/architecture.md` y `.opencode/prompts/conventions.md` antes de escribir migraciones o queries. Si el cambio afecta contratos, coordina con `@backend` y `@planner`.

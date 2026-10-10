@@ -6,9 +6,9 @@ Configuración multi-agente para [OpenCode](https://opencode.ai) orientada a un 
 
 ```
 opencode.json            # configuración principal (¡no "opemcode.json"!)
-opencode/
+.opencode/
   agents/                # 1 primary (orchestrator) + subagentes especialistas
-  prompts/               # instrucciones normativas (architecture.md, conventions.md)
+  prompts/               # fuentes normativas de arquitectura y convenciones
 scripts/
   validate-agents.mjs          # coherencia de permisos/config (gate determinista)
   validate-agents.test.mjs     # pruebas de regresión del validador
@@ -18,7 +18,7 @@ scripts/
   quality-gates.yml      # CI del harness
 ```
 
-La carpeta `opencode/` (sin punto) se usa deliberadamente para poder versionarla en Git.
+OpenCode descubre agentes en `.opencode/agents/`. Las reglas compartidas se cargan mediante `AGENTS.md`; `instructions` en `opencode.json` no carga esos archivos en OpenCode V2.
 
 ## Modelo de agentes
 
@@ -53,4 +53,4 @@ Para comprobar las fronteras de una aplicación Laravel, ejecuta `php scripts/ch
 
 ## Secretos
 
-El MCP `stitch` lee `STITCH_API_KEY` del entorno (`{env:STITCH_API_KEY}`) y está deshabilitado por defecto. Nunca hardcodear API keys en `opencode.json`.
+El MCP `laravel-boost` está deshabilitado por defecto porque requiere un proyecto Laravel con `artisan` y Boost instalados. El MCP `stitch` lee `STITCH_API_KEY` del entorno (`{env:STITCH_API_KEY}`) y está deshabilitado por defecto. Nunca hardcodear API keys en `opencode.json`.
